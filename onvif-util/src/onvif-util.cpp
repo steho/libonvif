@@ -161,23 +161,23 @@ void show(const std::vector<std::string>& args)
 	}
 }
 
-void profileCheck(OnvifData* onvif_data, const std::vector<std::string>& args)
+void profileCheck(OnvifData* onvif_data, const std::vector<std::string>& args, bool silent = false)
 {
 	int index = 0;
 	if (args.size() > 1) {
 		index = std::stoi(args[1]);
 		if (getProfileToken(onvif_data, index)) throw std::runtime_error(cat("get profile token - ", onvif_data->last_error));
 		if (strlen(onvif_data->profileToken) == 0) throw std::runtime_error(cat("invalid profile token - ", (char*)std::to_string(index).c_str()).data());
-		std::cout << "  Profile set to " << onvif_data->profileToken << "\n" << std::endl;
+		if (! silent) std::cout << "  Profile set to " << onvif_data->profileToken << "\n" << std::endl;
 	}
 	else {
 		if (!strcmp(onvif_data->profileToken, "")) {
 			if (getProfileToken(onvif_data, index)) throw std::runtime_error(cat("get profile token - ", onvif_data->last_error));
 			if (strlen(onvif_data->profileToken) == 0) throw std::runtime_error(cat("invalid profile token - ", (char*)std::to_string(index).c_str()).data());
-			std::cout << "  Profile set to " << onvif_data->profileToken << "\n" << std::endl;
+			if (! silent) std::cout << "  Profile set to " << onvif_data->profileToken << "\n" << std::endl;
 		}
 		else {
-			std::cout << std::endl;
+			if (! silent) std::cout << std::endl;
 		}
 	}
 	if (getProfile(onvif_data)) throw std::runtime_error(cat("get profile - ", onvif_data->last_error));
@@ -227,6 +227,14 @@ int main(int argc, char **argv)
 	}
 
 	char *wanted = argv++[0];
+	char *command = NULL;
+	bool silent = false;
+
+	if (argc > 1) {
+		command = argv++[0];
+		silent = true;
+		if (! silent) printf ("Command: %s\n", command);
+	}
 
 	struct OnvifSession *onvif_session = (struct OnvifSession*)calloc(sizeof(struct OnvifSession), 1);
 	struct OnvifData *onvif_data = (struct OnvifData*)malloc(sizeof(struct OnvifData));
@@ -238,13 +246,13 @@ int main(int argc, char **argv)
 		extractHost(onvif_data->xaddrs, host);
 		getHostname(onvif_data);
 		if (!strcmp(host, wanted)) {
-			std::cout << "  found host: " << host << std::endl;
+			if (! silent) std::cout << "  found host: " << host << std::endl;
 			if (username) strcpy(onvif_data->username, username);
 			if (password) strcpy(onvif_data->password, password);
 			if (getDeviceInformation(onvif_data)  == 0) {
-				std::cout << "  successfully connected to host" << "\n";
-				std::cout << "    name:   " << onvif_data->camera_name << "\n";
-				std::cout << "    serial: " << onvif_data->serial_number << "\n" << std::endl;
+				if (! silent) std::cout << "  successfully connected to host" << "\n";
+				if (! silent) std::cout << "    name:   " << onvif_data->camera_name << "\n";
+				if (! silent) std::cout << "    serial: " << onvif_data->serial_number << "\n" << std::endl;
 	
 				// Initializing the session properly with the camera requires calling getCapabilities
 				if (getCapabilities(onvif_data)) {
@@ -266,11 +274,18 @@ int main(int argc, char **argv)
 
 	char kybd_buf[128] = {0};
 	while (strcmp(kybd_buf, "quit")) {
+		std::string cmd;
 		memset(kybd_buf, 0, 128);
-		fgets(kybd_buf, 128, stdin);
-		kybd_buf[strcspn(kybd_buf, "\r\n")] = 0;
+		if (command) {
+			cmd = command;
+			strcpy(kybd_buf, "quit");
+			command = NULL;
+		} else {
+			fgets(kybd_buf, 128, stdin);
+			kybd_buf[strcspn(kybd_buf, "\r\n")] = 0;
 
-		std::string cmd(kybd_buf);
+			cmd = kybd_buf;		
+		}
 		if (cmd.length() == 0)
 			continue;
 		std::string arg;
@@ -292,7 +307,7 @@ int main(int argc, char **argv)
 							add_pass = true;
 						}
 					}
-					profileCheck(onvif_data, args);
+					profileCheck(onvif_data, args, silent);
 					if (getStreamUri(onvif_data)) throw std::runtime_error(cat("get stream uri - ", onvif_data->last_error));
 					std::string uri(onvif_data->stream_uri);
 					if (add_pass) {
