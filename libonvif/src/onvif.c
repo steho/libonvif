@@ -2252,6 +2252,8 @@ int broadcast(struct OnvifSession *onvif_session) {
         onvif_session->len[i] = recvfrom(broadcast_socket, onvif_session->buf[i], sizeof(onvif_session->buf[i]), 0, (struct sockaddr*) &broadcast_address, &address_size);
         if (onvif_session->len[i] > 0) {
             onvif_session->buf[i][onvif_session->len[i]] = '\0';
+            memset(onvif_session->peer[i], 0, sizeof(onvif_session->peer[i]));
+            strncpy(onvif_session->peer[i], inet_ntoa(broadcast_address.sin_addr), sizeof(onvif_session->peer[i])-1);
             i++;
         } else {
             looping = 0;
@@ -2636,27 +2638,29 @@ void getScopeField(char *scope, char *field_name, char cleaned[1024]) {
     }
 }
 
-void getCameraName(int ordinal, struct OnvifSession *onvif_session, struct OnvifData *onvif_data) {
+int getCameraName(int ordinal, struct OnvifSession *onvif_session, struct OnvifData *onvif_data) {
     xmlDocPtr xml_input = xmlParseMemory(onvif_session->buf[ordinal], onvif_session->len[ordinal]);
     for(int i=0; i<1024; i++)
         onvif_data->camera_name[i] = '\0';
 
     char scopes[8192];
-    getXmlValue(xml_input, BAD_CAST "//s:Body//d:ProbeMatches//d:ProbeMatch//d:Scopes", scopes, 8192);
+    int retval = getXmlValue(xml_input, BAD_CAST "//s:Body//d:ProbeMatches//d:ProbeMatch//d:Scopes", scopes, 8192);
 
-    char temp_mfgr[1024] = {0};
-    char temp_hdwr[1024] = {0};
+    if (retval == 0) {
+        char temp_mfgr[1024] = {0};
+        char temp_hdwr[1024] = {0};
 
-    getScopeField(scopes, "onvif://www.onvif.org/name/", temp_mfgr);
-    getScopeField(scopes, "onvif://www.onvif.org/hardware/", temp_hdwr);
+        getScopeField(scopes, "onvif://www.onvif.org/name/", temp_mfgr);
+        getScopeField(scopes, "onvif://www.onvif.org/hardware/", temp_hdwr);
 
-    if (strlen(temp_mfgr) > 0) {
-        strcat(onvif_data->camera_name, temp_mfgr);
-    }
-    if (strlen(temp_hdwr) > 0) {
-        if (strstr(temp_mfgr, temp_hdwr) == NULL) {
-            strcat(onvif_data->camera_name, " ");
-            strcat(onvif_data->camera_name, temp_hdwr);
+        if (strlen(temp_mfgr) > 0) {
+            strcat(onvif_data->camera_name, temp_mfgr);
+        }
+        if (strlen(temp_hdwr) > 0) {
+            if (strstr(temp_mfgr, temp_hdwr) == NULL) {
+                strcat(onvif_data->camera_name, " ");
+                strcat(onvif_data->camera_name, temp_hdwr);
+            }
         }
     }
 
@@ -2664,6 +2668,7 @@ void getCameraName(int ordinal, struct OnvifSession *onvif_session, struct Onvif
         strcpy(onvif_data->camera_name, "UNKNOWN CAMERA");
 
     xmlFreeDoc(xml_input);
+    return retval;
 }
 
 void extractXAddrs(int ordinal, struct OnvifSession *onvif_session, struct OnvifData *onvif_data) {
@@ -2778,9 +2783,11 @@ void closeSession(struct OnvifSession *onvif_session) {
     xmlCleanupParser ();
 }
 
-void prepareOnvifData(int ordinal, struct OnvifSession *onvif_session, struct OnvifData *onvif_data) {
+int prepareOnvifData(int ordinal, struct OnvifSession *onvif_session, struct OnvifData *onvif_data) {
     clearData(onvif_data);
-    getCameraName(ordinal, onvif_session, onvif_data);
+    if (getCameraName(ordinal, onvif_session, onvif_data) != 0) {
+        return -1;
+    }
     extractXAddrs(ordinal, onvif_session, onvif_data);
     extractOnvifService(onvif_data->device_service, true);
     getTimeOffset(onvif_data);

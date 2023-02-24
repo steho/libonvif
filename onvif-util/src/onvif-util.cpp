@@ -64,7 +64,11 @@ static void showAll()
 	int n = broadcast(onvif_session);
 	std::cout << "Found " << n << " cameras" << std::endl;
 	for (int i = 0; i < n; i++) {
-		prepareOnvifData(i, onvif_session, onvif_data);
+		int retval = prepareOnvifData(i, onvif_session, onvif_data);
+		if (retval != 0) {
+			printf("Peer %s sent wrong answer!\n", onvif_session->peer[i]);
+			continue;
+		}
 		char host[128];
 		extractHost(onvif_data->xaddrs, host);
 		getHostname(onvif_data);
