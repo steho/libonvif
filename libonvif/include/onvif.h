@@ -214,8 +214,8 @@ LIBRARY_API xmlXPathObjectPtr getNodeSet (xmlDocPtr doc, xmlChar *xpath);
 LIBRARY_API void getDiscoveryXml(char buffer[], int buf_size, char uuid[47]);
 LIBRARY_API void getDiscoveryXml2(char buffer[], int buf_size);
 LIBRARY_API void getScopeField(char *, char *, char[1024]);
-LIBRARY_API int getCameraName(int ordinal, struct OnvifSession *onvif_session, struct OnvifData *onvif_data);
-LIBRARY_API void extractXAddrs(int ordinal, struct OnvifSession *onvif_session, struct OnvifData *onvif_data);
+LIBRARY_API void getCameraName(int ordinal, struct OnvifSession *onvif_session, struct OnvifData *onvif_data);
+LIBRARY_API int extractXAddrs(int ordinal, struct OnvifSession *onvif_session, struct OnvifData *onvif_data);
 LIBRARY_API void extractOnvifService(char service[1024], bool post);
 LIBRARY_API void extractHost(char * xaddrs, char host[128]);
 

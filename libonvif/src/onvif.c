@@ -2638,7 +2638,7 @@ void getScopeField(char *scope, char *field_name, char cleaned[1024]) {
     }
 }
 
-int getCameraName(int ordinal, struct OnvifSession *onvif_session, struct OnvifData *onvif_data) {
+void getCameraName(int ordinal, struct OnvifSession *onvif_session, struct OnvifData *onvif_data) {
     xmlDocPtr xml_input = xmlParseMemory(onvif_session->buf[ordinal], onvif_session->len[ordinal]);
     for(int i=0; i<1024; i++)
         onvif_data->camera_name[i] = '\0';
@@ -2671,17 +2671,18 @@ int getCameraName(int ordinal, struct OnvifSession *onvif_session, struct OnvifD
     return retval;
 }
 
-void extractXAddrs(int ordinal, struct OnvifSession *onvif_session, struct OnvifData *onvif_data) {
+int extractXAddrs(int ordinal, struct OnvifSession *onvif_session, struct OnvifData *onvif_data) {
     xmlDocPtr xml_input = xmlParseMemory(onvif_session->buf[ordinal], onvif_session->len[ordinal]);
-    if (getXmlValue(xml_input, BAD_CAST "//s:Body//d:ProbeMatches//d:ProbeMatch//d:XAddrs", onvif_data->xaddrs, 1024) == 0) {
+    int retval = getXmlValue(xml_input, BAD_CAST "//s:Body//d:ProbeMatches//d:ProbeMatch//d:XAddrs", onvif_data->xaddrs, 1024);
+    if (retval == 0) {
         char *sub = strstr(onvif_data->xaddrs, " ");
         if (sub != NULL) {
             int mark = sub - onvif_data->xaddrs;
             onvif_data->xaddrs[mark] = '\0';
         }
-        strcpy(onvif_data->device_service, onvif_data->xaddrs);
     }
     xmlFreeDoc(xml_input);
+    return retval;
 }
 
 void clearData(struct OnvifData *onvif_data) {
@@ -2785,12 +2786,16 @@ void closeSession(struct OnvifSession *onvif_session) {
 
 int prepareOnvifData(int ordinal, struct OnvifSession *onvif_session, struct OnvifData *onvif_data) {
     clearData(onvif_data);
-    if (getCameraName(ordinal, onvif_session, onvif_data) != 0) {
-        return -1;
+    getCameraName(ordinal, onvif_session, onvif_data);
+    int retval = extractXAddrs(ordinal, onvif_session, onvif_data);
+    if (retval == 0) {
+        strcpy(onvif_data->device_service, onvif_data->xaddrs);
+        extractOnvifService(onvif_data->device_service, true);
+        getTimeOffset(onvif_data);
+    } else {
+		printf("%s did not send a useful answer!\n", onvif_session->peer[ordinal]);
     }
-    extractXAddrs(ordinal, onvif_session, onvif_data);
-    extractOnvifService(onvif_data->device_service, true);
-    getTimeOffset(onvif_data);
+    return retval;
 }
 
 int fillRTSPn(struct OnvifData *onvif_data, int profileIndex) {

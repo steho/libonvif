@@ -66,7 +66,6 @@ static void showAll()
 	for (int i = 0; i < n; i++) {
 		int retval = prepareOnvifData(i, onvif_session, onvif_data);
 		if (retval != 0) {
-			printf("Peer %s sent wrong answer!\n", onvif_session->peer[i]);
 			continue;
 		}
 		char host[128];
@@ -228,12 +227,18 @@ int main(int argc, char **argv)
 
 	char *wanted = argv++[0];
 
+	char kybd_buf[128] = {0};
+
 	struct OnvifSession *onvif_session = (struct OnvifSession*)calloc(sizeof(struct OnvifSession), 1);
 	struct OnvifData *onvif_data = (struct OnvifData*)malloc(sizeof(struct OnvifData));
 	initializeSession(onvif_session);
 	int n = broadcast(onvif_session);
 	for (int i = 0; i < n; i++) {
-		prepareOnvifData(i, onvif_session, onvif_data);
+		int retval = prepareOnvifData(i, onvif_session, onvif_data);
+		if (retval != 0) {
+			strcpy(kybd_buf, "quit");
+			break;
+		}
 		char host[128];
 		extractHost(onvif_data->xaddrs, host);
 		getHostname(onvif_data);
@@ -264,7 +269,6 @@ int main(int argc, char **argv)
 		}
 	}
 
-	char kybd_buf[128] = {0};
 	while (strcmp(kybd_buf, "quit")) {
 		memset(kybd_buf, 0, 128);
 		fgets(kybd_buf, 128, stdin);
